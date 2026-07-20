@@ -1,0 +1,422 @@
+{
+  "name": "Slack approval workflow for ImageKit DAM uploads",
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "file.created"
+        ]
+      },
+      "type": "@imagekit/n8n-nodes-imagekit.imagekitTrigger",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        0
+      ],
+      "id": "14d76cba-a19c-4974-afcd-774a5c7703a4",
+      "name": "New Asset Uploaded",
+      "webhookId": "7bed64c9-d7f8-48e2-9828-f910d6a29636",
+      "alwaysOutputData": true,
+      "credentials": {
+        "imagekitWebhookApi": {
+          "id": "WbNRwgHuPNZ7AIDI",
+          "name": "ImageKit Webhook — Manual Approval Workflow"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ba77bcc6-5f42-48fa-960a-55bfe5f358b5",
+              "leftValue": "={{ $json.data.filePath }}",
+              "rightValue": "^/n8n/manual-approval-workflow/pending/",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        80,
+        0
+      ],
+      "id": "f78cd61b-4144-4e0e-b8ad-fd7e178f409e",
+      "name": "Is Pending Review?",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "operation": "sendAndWait",
+        "user": {
+          "__rl": true,
+          "value": "U0BHM37KYGP",
+          "mode": "list",
+          "cachedResultName": "ashishleo10"
+        },
+        "message": "=New asset pending review: {{ $json.data.name }}\n{{ $json.data.url }}\n",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        304,
+        -80
+      ],
+      "id": "25c641e8-2560-4335-a055-4153f0911e85",
+      "name": "Request Asset Review via Slack",
+      "webhookId": "f002c06e-7e2c-4304-ad97-24c5f91bac3b",
+      "alwaysOutputData": true,
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "FcLXPC4INy4RmeWH",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "00ef592f-09b2-4712-976b-e0b295dc10d5",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        512,
+        -80
+      ],
+      "id": "02043923-805f-42d1-9abe-97f3580eafcc",
+      "name": "Is Approved?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.imagekit.io/v1/files/move",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "imagekitApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sourceFilePath\": \"{{ $('New Asset Uploaded').item.json.data.filePath }}\",\n  \"destinationPath\": \"/n8n/manual-approval-workflow/approved/\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        -224
+      ],
+      "id": "acda0799-3da5-4c9b-a9d3-1bfa107bf245",
+      "name": "Move to Approved Folder",
+      "alwaysOutputData": true,
+      "credentials": {
+        "imagekitApi": {
+          "id": "ABqgUDYBiOnImO4k",
+          "name": "ImageKit account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.imagekit.io/v1/files/move",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "imagekitApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sourceFilePath\": \"{{ $('New Asset Uploaded').item.json.data.filePath }}\",\n  \"destinationPath\": \"/n8n/manual-approval-workflow/rejected/\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1008,
+        64
+      ],
+      "id": "70104e2c-3070-475e-8519-708c6a86db6a",
+      "name": "Move to Rejected folder",
+      "credentials": {
+        "imagekitApi": {
+          "id": "ABqgUDYBiOnImO4k",
+          "name": "ImageKit account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.imagekit.io/v1/files/{{ $('New Asset Uploaded').item.json.data.fileId }}/details",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "imagekitApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"customMetadata\": { \"Approval Status\": \"Approved\" } }\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        -176
+      ],
+      "id": "906b2b4b-2d75-4e71-95b5-6cb19a5bd383",
+      "name": "Update Metadata — Approved",
+      "credentials": {
+        "imagekitApi": {
+          "id": "ABqgUDYBiOnImO4k",
+          "name": "ImageKit account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.imagekit.io/v1/files/{{ $('New Asset Uploaded').item.json.data.fileId }}/details",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "imagekitApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"customMetadata\": { \"Approval Status\": \"Rejected\" } }\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        736,
+        32
+      ],
+      "id": "6dc660dc-6846-4454-8c29-a40d4b791e83",
+      "name": "Update Metadata — Rejected",
+      "credentials": {
+        "imagekitApi": {
+          "id": "ABqgUDYBiOnImO4k",
+          "name": "ImageKit account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "U0BHM37KYGP",
+          "mode": "list",
+          "cachedResultName": "ashishleo10"
+        },
+        "text": "=✅ Approved: {{ $('New Asset Uploaded').item.json.data.name }}\nSearch this filename in the Media Library to find it.\nMoved to: /n8n/manual-approval-workflow/approved/\nApproval Status: Approved",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1200,
+        -224
+      ],
+      "id": "3d2fd53d-e24a-4167-934a-6d72232d2bdb",
+      "name": "Post Approved Outcome",
+      "webhookId": "9941236c-eb15-407b-8997-30abf12d45e3",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "FcLXPC4INy4RmeWH",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "U0BHM37KYGP",
+          "mode": "list",
+          "cachedResultName": "ashishleo10"
+        },
+        "text": "=❌ Rejected: {{ $('New Asset Uploaded').item.json.data.name }} Search this filename in the Media Library to find it. Moved to: /n8n/manual-approval-workflow/rejected/ Approval Status: Rejected",
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.5,
+      "position": [
+        1216,
+        64
+      ],
+      "id": "fcbf2584-a4a7-41c6-9b30-bd78bc74298e",
+      "name": "Post Rejected Outcome",
+      "webhookId": "06d7d6c1-7365-46b4-a2b0-9ab1177d5481",
+      "credentials": {
+        "slackOAuth2Api": {
+          "id": "FcLXPC4INy4RmeWH",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Overview\n\n**Manual approval workflow** for ImageKit uploads via Slack.\n\nUpload → Slack review → Approve/Decline → metadata + folder updated → outcome posted back to Slack.\n\n**Requires:**\n- Custom metadata field: `Approval Status`\n- Folders: `/n8n/manual-approval-workflow/{pending,approved,rejected}/`\n- ImageKit webhook: `file.created`\n",
+        "height": 544,
+        "width": 304
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -592,
+        -304
+      ],
+      "typeVersion": 1,
+      "id": "d886f74a-b819-4869-a3a0-87d833f01a3d",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "New Asset Uploaded": {
+      "main": [
+        [
+          {
+            "node": "Is Pending Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Pending Review?": {
+      "main": [
+        [
+          {
+            "node": "Request Asset Review via Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Asset Review via Slack": {
+      "main": [
+        [
+          {
+            "node": "Is Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Approved?": {
+      "main": [
+        [
+          {
+            "node": "Update Metadata — Approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Metadata — Rejected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Metadata — Approved": {
+      "main": [
+        [
+          {
+            "node": "Move to Approved Folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Metadata — Rejected": {
+      "main": [
+        [
+          {
+            "node": "Move to Rejected folder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move to Approved Folder": {
+      "main": [
+        [
+          {
+            "node": "Post Approved Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move to Rejected folder": {
+      "main": [
+        [
+          {
+            "node": "Post Rejected Outcome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "2c292dc5-c3a3-403b-af55-5b4217c7e961",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "66b5c6b464f3a738a1f15bdc1abb76369ca7d577f70005a3c8e1adcbf958d0fa"
+  },
+  "nodeGroups": [],
+  "id": "EKQEZ4Z7pPfZsahe",
+  "tags": []
+}
