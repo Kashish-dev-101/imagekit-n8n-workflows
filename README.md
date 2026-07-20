@@ -17,7 +17,9 @@ Each file is a standard n8n workflow export (`.json`) — import via n8n's **Wor
 
 | Workflow | What it does |
 |---|---|
-| _(added as built)_ | |
+| [`Slack approval workflow for ImageKit DAM uploads.json`](sample-workflows/Slack%20approval%20workflow%20for%20ImageKit%20DAM%20uploads.json) | Human-in-the-loop review: new uploads to a `pending/` folder trigger a Slack approval request (Approve/Decline). The response updates the file's `Approval Status` custom metadata, moves it to `approved/` or `rejected/`, and posts the outcome back to Slack. |
+
+![Slack approval workflow canvas](docs/images/slack-approval-workflow-canvas.png)
 
 ## Setup
 
